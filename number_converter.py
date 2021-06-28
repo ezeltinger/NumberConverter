@@ -1,7 +1,7 @@
 import tkinter as tk
 
 class Numeral:
-    """[summary]
+    """Contains an object with a name, numeral base, and tkinter Label and Entry objects
     """
     def __init__(self, name:str, window:tk.Tk, base:int) -> None:
         self.name = name
