@@ -15,3 +15,5 @@ The executable can be found at <https://github.com/ezeltinger/NumberConverter/re
 Once you have Number Converter open, you can add a number to any of the entries and then click 'Convert' or hit enter to convert to other numeral systems.
 
 To clear all entries, click 'Clear' or hit enter when two or more entries are filled.
+
+Little-Endian is now supported for both float and int conversions.

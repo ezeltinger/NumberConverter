@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, Checkbutton, IntVar
 from typing import List, Tuple
 from functools import partial
 import struct
@@ -21,6 +21,8 @@ def convert_integer():
             entry_count = entry_count + 1
             converting_base = numeral.base
             number = int(numeral.entry.get(), converting_base)
+            if little_endian.get() and converting_base == 10:
+                number = int(endian_swap(pad_zeros(f'{number:x}', float=False)), 16)
     if entry_count > 1:
         message["text"] = "More than one entry filled!"
     else:
@@ -31,9 +33,15 @@ def convert_integer():
                 elif numeral.base == 16:
                     numeral.entry.insert(0, f'{number:x}')
                 elif numeral.base == 10:
-                    numeral.entry.insert(0, f'{number}')
+                    if little_endian.get():
+                        # swap from little to big endian to properly display the decimal number
+                        swapped_decimal = int(endian_swap(pad_zeros(f'{number:x}', float=False)), 16)
+                        numeral.entry.insert(0, f'{swapped_decimal}')
+                    else:
+                        numeral.entry.insert(0, f'{number}')
                 elif numeral.base == 8:
                     numeral.entry.insert(0, f'{number:o}')
+
 
 def convert_float():
     entry_count = 0
@@ -43,6 +51,11 @@ def convert_float():
             converting_base = numeral.base
             if converting_base == 16:
                 hex_string = numeral.entry.get()
+                # Need to pad hex with 0s
+                hex_string = pad_zeros(hex_string)
+                message["text"] = ""
+                if len(hex_string)>8:
+                    message["text"] = "Only two bytes or less allowed for hex float!"
             elif converting_base == 10:
                 number = float(numeral.entry.get())
     if entry_count > 1:
@@ -51,12 +64,33 @@ def convert_float():
         for numeral in float_numerals:
             if numeral.base != converting_base:
                 if numeral.base == 16:
-                    hex_string = hex(struct.unpack('<I', struct.pack('<f', number))[0])
-                    hex_string = hex_string[2:]
+                    hex_string = hex(struct.unpack('<I', struct.pack('<f', number))[0])[2:]
+                    if little_endian.get():
+                        hex_string = endian_swap(hex_string)
                     numeral.entry.insert(0, hex_string)
                 if numeral.base == 10:
+                    if little_endian.get():
+                        hex_string = endian_swap(hex_string)
                     number = struct.unpack('!f', bytes.fromhex(hex_string))[0]
                     numeral.entry.insert(0, f'{number}')
+
+def endian_swap(big):
+    little_hex = bytearray.fromhex(big)
+    little_hex.reverse()
+    str_little = ''.join(format(x, '02x') for x in little_hex)
+    return str_little
+
+def pad_zeros(hex_string, float=True):
+    if float:
+        if len(hex_string)<8:
+            zeros = 8 - len(hex_string)
+            for zero in range(zeros):
+                hex_string = "0" + hex_string
+    else:
+        zeros = len(hex_string)%2
+        for zero in range(zeros):
+                hex_string = "0" + hex_string
+    return hex_string
 
 def clear_entries(numerals):
     for numeral in numerals:
@@ -91,7 +125,6 @@ def converter_layout(row_number, numeral_tuples) -> Tuple[List[Numeral], int]:
     return numerals, row_number
 
 
-
 int_tuples = [
     ("Decimal", 10),
     ("Hexadecimal", 16),
@@ -112,6 +145,7 @@ window.title("Number Converter")
 window.columnconfigure(list(range(2)), weight=1, minsize=100)
 window.rowconfigure(list(range(total_rows)), weight=1, minsize=25)
 
+little_endian = IntVar()
 int_numerals, current_row = converter_layout(row_number=0, numeral_tuples=int_tuples)
 
 # Add a button for converting numbers
@@ -141,8 +175,8 @@ clear_button.grid(row=current_row,
                     sticky="ew")
 current_row += 1
 
-separator = ttk.Separator(window, orient='horizontal')
-separator.grid(row=current_row, columnspan=2, sticky='ew')
+int_separator = ttk.Separator(window, orient='horizontal')
+int_separator.grid(row=current_row, columnspan=2, sticky='ew')
 
 current_row += 1
 
@@ -179,10 +213,29 @@ clear_float_button.grid(row=current_row,
                     sticky="ew")
 current_row += 1
 
+float_separator = ttk.Separator(window, orient='horizontal')
+float_separator.grid(row=current_row, columnspan=2, sticky='ew')
+
+current_row += 1
+
+endian_check = Checkbutton(master=window, 
+                            text="Little Endian",
+                            variable=little_endian, 
+                            onvalue=1, 
+                            offvalue=0, 
+                            height=1, 
+                            width=10
+                            )
+endian_check.grid(row=current_row, 
+                    column=0, 
+                    columnspan=2, 
+                    padx=5, 
+                    pady=5)
+current_row += 1
+
 # Create and place a message widget below the numerals
 message = ttk.Label(master=window)
 message.grid(row=current_row, column=0, columnspan=2, padx=5, pady=5)
-current_row += 1
 
 # Use the enter key to convert or clear entries
 window.bind("<Return>", handle_keypress)
